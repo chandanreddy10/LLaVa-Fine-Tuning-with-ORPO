@@ -90,7 +90,7 @@ def return_dataloaders(processor, dataset_id=DATASET_ID, dataset_chosen="OK-VQA"
     if dataset_chosen:
         dataset = dataset.filter(
             lambda row: row["origin_dataset"] == dataset_chosen
-        ).select(range(6750))
+        ).select(range(150))
 
     train_dataset, val_dataset = dataset.train_test_split(test_size=0.01).values()
     train_dataset = [
