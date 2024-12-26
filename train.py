@@ -6,8 +6,30 @@ from config.model_config import config
 import re
 import bitsandbytes as bnb
 from sentence_transformers import SentenceTransformer
+import wandb
+from lightning.pytorch.loggers import WandbLogger
+from lightning.pytorch.callbacks import Callback
+from huggingface_hub import HfApi
 
 val_model = SentenceTransformer("all-MiniLM-L6-v2")
+WANDB_PROJECT = "LLaVaNext"
+WANDB_NAME = "llava-next-with-ORPO"
+REPO_ID="LLaVA-ORPO"
+wandb_logger = WandbLogger(project=WANDB_PROJECT, name=WANDB_NAME)
+api = HfApi()
+
+class PushToHubCallback(Callback):
+    def on_train_epoch_end(self, trainer, pl_module):
+        print(f"Pushing model to the hub, epoch {trainer.current_epoch}")
+        pl_module.model.push_to_hub(REPO_ID,
+                                    commit_message=f"model commit {trainer.current_epoch}")
+
+    def on_train_end(self, trainer, pl_module):
+        print(f"Pushing model to the hub after training")
+        pl_module.processor.push_to_hub(REPO_ID,
+                                    commit_message=f"Training done")
+        pl_module.model.push_to_hub(REPO_ID,
+                                    commit_message=f"Training done")
 
 class LlavaModelPLModule(L.LightningModule):
     def __init__(
@@ -50,7 +72,6 @@ class LlavaModelPLModule(L.LightningModule):
             image_sizes,
         ) = batch
 
-        # Forward passes on different GPUs
         outputs_pos = self.model(
             input_ids=pos_input_ids,
             attention_mask=pos_attention_mask,
@@ -84,13 +105,13 @@ class LlavaModelPLModule(L.LightningModule):
             outputs_pos.loss
             - self.alpha * torch.log(torch.nn.functional.sigmoid(log_odds))
         )
-
+        wandb.log({"train_loss": loss.item()})
         self.log("train_loss", loss, sync_dist=True, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx, dataset_idx=0):
 
-        input_ids, attention_mask, pixel_values, image_sizes, desirable = batch
+        input_ids, attention_mask, pixel_values, image_sizes, desirable,questions = batch
 
         # autoregressively generate token IDs
         generated_ids = self.model.generate(
@@ -109,11 +130,11 @@ class LlavaModelPLModule(L.LightningModule):
         similarities = val_model.similarity(prediction_embeddings, chosen_embeddings)
         scores = similarities.tolist()
 
-        for pred, chosen, similarity in zip(predictions, desirable, similarities):
+        for question, pred, chosen, similarity in zip(questions, predictions, desirable, similarities):
+            print(f"Question : {question}")
             print(f"Predicted: {pred}")
-            print(f"Chosen Response: {chosen[0]}")
+            print(f"Chosen Response: {chosen}")
             print(f"Similarity: {similarity}")
-        
         return scores
 
     def configure_optimizers(self):
@@ -146,6 +167,8 @@ if __name__ == "__main__":
         gradient_clip_val=config["gradient_clip_val"],
         precision="16-mixed",
         num_sanity_val_steps=0,
+        logger=wandb_logger,
+        callbacks=[PushToHubCallback()]
     )
 
     trainer.fit(model_module)
