@@ -1,7 +1,7 @@
 # Fine-tuning LLava using Odds Ratio Preference Optimization for Alignment
 
 This repository contains the implementation for fine-tuning the LLava model using **Odds Ratio Preference Optimization** for **alignment**. 
-## Setup Instructions
+## Setup
 
 Below are the steps to set up and run the project in a virtual environment:
 ```bash
