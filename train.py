@@ -172,4 +172,4 @@ if __name__ == "__main__":
     )
 
     trainer.fit(model_module)
-#needs to add push to hub
+#need to add push to hub
