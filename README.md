@@ -24,3 +24,8 @@ To authenticate with Hugging Face, run the following command and log in with you
 ```bash
 huggingface-cli login
 ```
+Train!
+```bash
+python train.py
+```
+
