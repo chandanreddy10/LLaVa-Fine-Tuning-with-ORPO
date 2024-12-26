@@ -1,0 +1,5 @@
+/__pycache__
+/model/__pycache__
+/lightning_logs
+/config/__pycache__
+/data/__pycache__

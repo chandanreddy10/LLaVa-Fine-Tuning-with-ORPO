@@ -3,7 +3,7 @@ from transformers import BitsAndBytesConfig
 
 # Hyperparameters and model configuration
 MAX_LENGTH = 256
-MAX_TOKEN_GENERATION=128
+MAX_TOKEN_GENERATION = 128
 MODEL_ID = "llava-hf/llava-v1.6-mistral-7b-hf"
 BATCH_SIZE = 1
 LEARNING_RATE = 1e-4
@@ -15,7 +15,7 @@ bnb_config = BitsAndBytesConfig(
     load_in_4bit=True,
     bnb_4bit_quant_type="nf4",
     bnb_4bit_compute_dtype=torch.float16,
-    bnb_4bit_use_double_quant=True
+    bnb_4bit_use_double_quant=True,
 )
 
 config = {
