@@ -1,8 +1,14 @@
-from transformers import AutoProcessor, BitsAndBytesConfig, LlavaNextForConditionalGeneration
+from transformers import (
+    AutoProcessor,
+    BitsAndBytesConfig,
+    LlavaNextForConditionalGeneration,
+)
 import torch
 from config.model_config import MODEL_ID
-from data.dataset import DATASET_ID
-from datasets import load_dataset
+import os
+from PIL import Image
+import random
+import re
 
 REPO_ID = "chandanreddy/LLaVA-ORPO"
 processor = AutoProcessor.from_pretrained(MODEL_ID)
@@ -15,27 +21,37 @@ quantization_config = BitsAndBytesConfig(
 model = LlavaNextForConditionalGeneration.from_pretrained(
     REPO_ID,
     torch_dtype=torch.float16,
+    image_token_index=1,
     quantization_config=quantization_config,
 )
-dataset = load_dataset(DATASET_ID, split="train")
-dataset = dataset.filter(
-        lambda row: row["origin_dataset"] == "OK-VQA"
-    ).select(range(6900))
-
-image = dataset['image']
 # prepare image and prompt for the model
-conversation = [
-    {
-        "role": "user",
-        "content": [
-            {"type": "text", "text":dataset['question']},
-        ],
-    },
+general_prompts = [
+    "Describe the mood of this scene.",
+    "What objects are in the image?",
+    "What is happening in this picture?",
+    "Write a short description of this picture."
 ]
-text_prompt = processor.apply_chat_template(conversation, add_generation_prompt=True)
-inputs = processor(text=text_prompt, images=image, return_tensors="pt").to("cuda")
+images = "images"
 
-generated_ids = model.generate(**inputs, max_new_tokens=128)
-generated_texts = processor.batch_decode(generated_ids, skip_special_tokens=True)
+for image in os.listdir("images"):
+    image_path = os.path.join(images, image)
+    img = Image.open(image_path)
 
-print(generated_texts)
+    random_question = random.choice(general_prompts)
+    conversation = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": random_question},
+            ],
+        },
+    ]
+    text_prompt = processor.apply_chat_template(conversation, add_generation_prompt=True)
+    inputs = processor(text=text_prompt, images=img, return_tensors="pt").to("cuda")
+
+    generated_ids = model.generate(**inputs, max_new_tokens=128)
+    generated_texts = processor.batch_decode(generated_ids, skip_special_tokens=True)
+
+    response = re.sub(r'\[INST\]|\[/INST\]|<\\s>','',generated_texts[0])
+    print(image_path)
+    print(response)
